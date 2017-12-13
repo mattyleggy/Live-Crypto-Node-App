@@ -2,9 +2,19 @@
 <html>
 <head>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/js/main.js"></script>  
+  <script src="/js/jquery-3.2.1.min.js"></script>
+  <script src="/js/main.js"></script>
 </head>
 <body>
   Welcome!
+  <form id="currency_form" name="currency_form">
+    <input type="text" id="currency_from" name="currency_from" value="LSK" />
+    <input type="text" id="currency_to" name="currency_to" value="AUD" />
+    <input type="submit" id="currency_submit" name="currency_submit" />
+  </form>
+
+  <div id="current_prices">
+    
+  </div>
 </body>
 </html>

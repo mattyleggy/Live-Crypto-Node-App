@@ -18,19 +18,23 @@ crypto = new CryptoCompare();
 
 app.use(express.static(publicPath));
 
+var request = require("request");
+
 var cryptoCompareServer = require("socket.io-client")('https://streamer.cryptocompare.com/'); // This is a client connecting to the SERVER 2
 
+/*
 cc.price('LSK', ['AUD','USD'])
 .then(prices => {
-  console.log(prices);
+  //console.log(prices);
 })
 .catch(console.error);
+*/
 
 //cryptoCompare server to get up to date prices
 cryptoCompareServer.on("connect",function(){
   var currentPrice = {};
   //var subscription = ['0~Poloniex~BTC~USD','5~CCCAGG~LSK~USD'];
-  var subscription = ['5~CCCAGG~LSK~USD'];
+  var subscription = ['5~CCCAGG~SAFEX~AUD'];
   cryptoCompareServer.emit('SubAdd', { subs: subscription });
   cryptoCompareServer.on("m", function(message) {
     var messageType = message.substring(0, message.indexOf("~"));
@@ -79,6 +83,25 @@ io.on('connection', (socket) => {
       from: message.from,
       text: message.text,
       createdAt: new Date().getTime()
+    })
+  });
+
+  socket.on('updateCurrency', (currency) => {
+    console.log(currency);
+    var url = `https://min-api.cryptocompare.com/data/price?fsym=${currency.from}&tsyms=${currency.to}`;
+
+    request({
+        url: url,
+        json: true
+    }, function (error, response, body) {
+        if (!error && response.statusCode === 200) {
+            console.log(body) // Print the json response
+            socket.emit('loadPrices', {
+              from: currency.from,
+              to: currency.to,
+              currentPrice: body[currency.to]
+            });
+        }
     })
   });
 
