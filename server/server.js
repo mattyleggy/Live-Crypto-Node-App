@@ -1,3 +1,5 @@
+global.fetch = require('node-fetch');
+const cc = require('cryptocompare');
 const path = require('path');
 const http = require('http');
 const express = require('express');
@@ -18,6 +20,12 @@ app.use(express.static(publicPath));
 
 var cryptoCompareServer = require("socket.io-client")('https://streamer.cryptocompare.com/'); // This is a client connecting to the SERVER 2
 
+cc.price('LSK', ['AUD','USD'])
+.then(prices => {
+  console.log(prices);
+})
+.catch(console.error);
+
 //cryptoCompare server to get up to date prices
 cryptoCompareServer.on("connect",function(){
   var currentPrice = {};
@@ -28,6 +36,7 @@ cryptoCompareServer.on("connect",function(){
     var messageType = message.substring(0, message.indexOf("~"));
     var res = {};
     console.log(message);
+    io.to("lobby").emit("updatePrices", message);
     if (messageType == StreamerUtilities.CCC.STATIC.TYPE.CURRENTAGG) {
 			res = StreamerUtilities.CCC.CURRENT.unpack(message);
       response = crypto.dataUnpack(res);
