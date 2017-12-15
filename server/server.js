@@ -11,8 +11,11 @@ var app = express();
 var server = http.createServer(app);
 var io = socketIO(server);
 
-var CryptoCompare = require("./CryptoCompare.js");
-var StreamerUtilities = require("./streamer-utilities.js");
+var HTTPCryptoCompare = require("./HTTPCryptoCompare");
+var CryptoCompare = require("./CryptoCompare");
+var StreamerUtilities = require("./streamer-utilities");
+
+var httpCrypto = new HTTPCryptoCompare();
 
 crypto = new CryptoCompare();
 
@@ -34,7 +37,7 @@ cc.price('LSK', ['AUD','USD'])
 cryptoCompareServer.on("connect",function(){
   var currentPrice = {};
   //var subscription = ['0~Poloniex~BTC~USD','5~CCCAGG~LSK~USD'];
-  var subscription = ['5~CCCAGG~SAFEX~AUD'];
+  var subscription = ['5~CCCAGG~BTC~AUD'];
   cryptoCompareServer.emit('SubAdd', { subs: subscription });
   cryptoCompareServer.on("m", function(message) {
     var messageType = message.substring(0, message.indexOf("~"));
@@ -87,22 +90,23 @@ io.on('connection', (socket) => {
   });
 
   socket.on('updateCurrency', (currency) => {
-    console.log(currency);
-    var url = `https://min-api.cryptocompare.com/data/price?fsym=${currency.from}&tsyms=${currency.to}`;
+    var getCurrentPrice = (currency) => {
+      httpCrypto.getPrice(currency.from,currency.to,(response) => {
+        console.log(currency.from, currency.to, response[currency.to]);
+        socket.emit('loadPrices', {
+          from: currency.from,
+          to: currency.to,
+          currentPrice: response[currency.to]
+        });
+      });
+    };
 
-    request({
-        url: url,
-        json: true
-    }, function (error, response, body) {
-        if (!error && response.statusCode === 200) {
-            console.log(body) // Print the json response
-            socket.emit('loadPrices', {
-              from: currency.from,
-              to: currency.to,
-              currentPrice: body[currency.to]
-            });
-        }
-    })
+    getCurrentPrice(currency);
+    clearInterval(currentPriceInterval);
+    var currentPriceInterval = "";
+    currentPriceInterval = setInterval(()=>{
+      getCurrentPrice(currency);
+    },5000);
   });
 
   socket.on('disconnect', (socket) => {
