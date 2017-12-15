@@ -37,7 +37,7 @@ cc.price('LSK', ['AUD','USD'])
 cryptoCompareServer.on("connect",function(){
   var currentPrice = {};
   //var subscription = ['0~Poloniex~BTC~USD','5~CCCAGG~LSK~USD'];
-  var subscription = ['5~CCCAGG~BTC~AUD'];
+  var subscription = ['5~CCCAGG~LSK~USD','5~CCCAGG~LSK~USD'];
   cryptoCompareServer.emit('SubAdd', { subs: subscription });
   cryptoCompareServer.on("m", function(message) {
     var messageType = message.substring(0, message.indexOf("~"));
@@ -59,12 +59,6 @@ io.on('connection', (socket) => {
   console.log('New user connected');
 
   socket.join("lobby");
-
-  socket.emit('updatedPrices', {
-    from: "Admin",
-    text: "Welcome to the program",
-    createdAt:  new Date().getTime()
-  });
 
   socket.broadcast.emit('newMessage', {
     from: "Admin",
@@ -96,7 +90,8 @@ io.on('connection', (socket) => {
         socket.emit('loadPrices', {
           from: currency.from,
           to: currency.to,
-          currentPrice: response[currency.to]
+          currentPrice: response[currency.to],
+          timestamp: new Date().getTime()
         });
       });
     };
