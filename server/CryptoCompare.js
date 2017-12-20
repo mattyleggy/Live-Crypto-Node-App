@@ -11,7 +11,7 @@ class CryptoCompare {
 		var fsym = StreamerUtilities.CCC.STATIC.CURRENCY.getSymbol(from);
 		var tsym = StreamerUtilities.CCC.STATIC.CURRENCY.getSymbol(to);
 		var pair = from + to;
-		console.log(data);
+		//console.log(data);
     return data;
 
 		if (!this.currentPrice.hasOwnProperty(pair)) {

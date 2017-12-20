@@ -25,31 +25,101 @@ var request = require("request");
 
 var cryptoCompareServer = require("socket.io-client")('https://streamer.cryptocompare.com/'); // This is a client connecting to the SERVER 2
 
-/*
-cc.price('LSK', ['AUD','USD'])
-.then(prices => {
-  //console.log(prices);
-})
-.catch(console.error);
-*/
+var cryptoCompareSubscription = [];
+var cryptoPrices = {};
+
+function getSubscriptions(fsym,tsym) {
+  if (fsym == "BTC") {
+
+  } else if (tsym == "BTC") {
+
+  }
+  return [
+    `5~CCCAGG~${fsym}~${tsym}`,
+    `5~CCCAGG~${tsym}~${fsym}`,
+    `5~CCCAGG~BTC~${fsym}`,
+    `5~CCCAGG~BTC~${tsym}`,
+    `5~CCCAGG~${fsym}~BTC`,
+    `5~CCCAGG~${tsym}~BTC`
+  ];
+}
+
+function getActualPrice(fsym,tsym) {
+  if (priceExists(fsym,tsym)) {
+    price = getPrice(fsym,tsym);
+  } else if (priceExists(tsym,fsym)) {
+    price = (1 / getPrice(tsym,fsym));
+  } else {
+    //from symbols
+    btcToFSYM = priceExists("BTC",fsym);
+    FSYMtoBTC = priceExists(fsym,"BTC");
+    //to symbols
+    TSYMtoBTC = priceExists(tsym,"BTC");
+    btcToTSYM = priceExists("BTC",tsym);
+    if ((TSYMtoBTC || btcToTSYM) && (btcToFSYM || FSYMtoBTC)) {
+      tsymPrice = getPrice("BTC",tsym) || (1/getPrice(tsym,"BTC"));
+      fsymPrice = getPrice(fsym,"BTC") || (1/getPrice("BTC",fsym));
+      price = fsymPrice * tsymPrice
+    } else {
+      return null;
+    }
+  }
+  return {
+    fromSymbol: fsym,
+    toSymbol: tsym,
+    price: price
+  }
+}
+
+function getPrice(fsym,tsym) {
+  if (priceExists(fsym,tsym)) {
+    return cryptoPrices[`${fsym}-${tsym}`].price;
+  } else {
+    return false;
+  }
+}
+
+function priceExists(fsym,tsym) {
+  return (`${fsym}-${tsym}` in cryptoPrices);
+}
+
+function addToSubscriptions(subscription) {
+  for(i=0;i<subscription.length;i++) {
+    cryptoCompareSubscription.push(subscription[i]);
+  }
+}
 
 //cryptoCompare server to get up to date prices
 cryptoCompareServer.on("connect",function(){
+
   var currentPrice = {};
   //var subscription = ['0~Poloniex~BTC~USD','5~CCCAGG~LSK~USD'];
-  var subscription = ['5~CCCAGG~LSK~USD','5~CCCAGG~LSK~USD'];
-  cryptoCompareServer.emit('SubAdd', { subs: subscription });
+  addToSubscriptions(getSubscriptions("LSK","AUD"));
+
+  cryptoCompareServer.emit('SubAdd', { subs: cryptoCompareSubscription });
   cryptoCompareServer.on("m", function(message) {
     var messageType = message.substring(0, message.indexOf("~"));
     var res = {};
-    console.log(message);
-    io.to("lobby").emit("updatePrices", message);
+    //console.log(message);
+    //io.to("lobby").emit("updatePrices", message);
     if (messageType == StreamerUtilities.CCC.STATIC.TYPE.CURRENTAGG) {
 			res = StreamerUtilities.CCC.CURRENT.unpack(message);
       response = crypto.dataUnpack(res);
+      if (typeof response.PRICE != "undefined" && response.PRICE > 0) {
+        cryptoPrices[response.FROMSYMBOL+"-"+response.TOSYMBOL] = {
+          price: response.PRICE,
+          lastUpdate: response.LASTUPDATE
+        }
+
+        realPrice = getActualPrice("LSK","AUD");
+        if (realPrice != null) {
+          console.log(realPrice);
+          io.to("lobby").emit("updatePrices", realPrice);
+        }
+      }
 
       //transmit message to client socket
-      io.to("lobby").emit("updatePrices", response);
+      //io.to("lobby").emit("updatePrices", response);
 		}
   });
 });
@@ -64,6 +134,10 @@ io.on('connection', (socket) => {
     from: "Admin",
     text: "New user joined!",
     createdAt:  new Date().getTime()
+  });
+
+  socket.on('updatePrices', (message) => {
+    console.log("oh");
   });
 
   socket.on('createMessage', (message) => {
@@ -83,6 +157,7 @@ io.on('connection', (socket) => {
     })
   });
 
+/*
   socket.on('updateCurrency', (currency) => {
     var getCurrentPrice = (currency) => {
       httpCrypto.getPrice(currency.from,currency.to,(response) => {
@@ -101,13 +176,16 @@ io.on('connection', (socket) => {
     var currentPriceInterval = "";
     currentPriceInterval = setInterval(()=>{
       getCurrentPrice(currency);
-    },5000);
+    },50000);
   });
 
+  */
   socket.on('disconnect', (socket) => {
     console.log('User was disconnected');
   });
+
 });
+
 
 server.listen(port, () => {
   console.log(`Server is up on port ${port}`);
