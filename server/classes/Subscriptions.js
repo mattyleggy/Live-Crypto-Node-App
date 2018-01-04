@@ -14,6 +14,10 @@ class Subscriptions {
     return this.cryptoPrices;
   }
 
+  setPreviousCryptoPrices(previous) {
+    this.cryptoPricesPrevious = previous;
+  }
+
   getPreviousCryptoPrices() {
     return this.cryptoPricesPrevious;
   }

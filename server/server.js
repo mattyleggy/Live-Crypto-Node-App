@@ -49,8 +49,8 @@ cryptoCompareServer.on("connect", () => {
           lastUpdate: response.LASTUPDATE
         }
         allPrices = subs.getAllSubscriptionPrices();
-        updatedPrices = subs.getUpdatedPrices(allPrices);
-        cryptoPricesPrevious = allPrices;
+        updatedPrices = subs.getUpdatedPrices(allPrices);        
+        subs.setPreviousCryptoPrices(allPrices);
         //console.log(allPrices);
         console.log(updatedPrices);
         if (updatedPrices.count > 0) {
