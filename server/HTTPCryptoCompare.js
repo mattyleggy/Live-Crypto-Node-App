@@ -16,7 +16,19 @@ class HTTPCryptoCompare {
         if (!error && response.statusCode === 200) {
           callback(body);
         }
-    })
+    });
+  }
+
+  getCoinList(callback) {
+    var url = 'https://min-api.cryptocompare.com/data/all/coinlist';
+    request({
+        url: url,
+        json: true
+    }, function (error, response, body) {
+        if (!error && response.statusCode === 200) {
+          callback(body);
+        }
+    });
   }
 }
 

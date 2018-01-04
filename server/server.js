@@ -11,6 +11,7 @@ var app = express();
 var server = http.createServer(app);
 var io = socketIO(server);
 
+var Subscriptions = require("./classes/Subscriptions");
 var HTTPCryptoCompare = require("./HTTPCryptoCompare");
 var CryptoCompare = require("./CryptoCompare");
 var StreamerUtilities = require("./streamer-utilities");
@@ -21,34 +22,39 @@ crypto = new CryptoCompare();
 
 app.use(express.static(publicPath));
 
+
+
 var request = require("request");
 
 var cryptoCompareServer = require("socket.io-client")('https://streamer.cryptocompare.com/'); // This is a client connecting to the SERVER 2
 
+var subscriptionPairs = [];
 var cryptoCompareSubscription = [];
 var cryptoPrices = {};
+var cryptoPricesPrevious = {};
 
 function getSubscriptions(fsym,tsym) {
-  if (fsym == "BTC") {
-
-  } else if (tsym == "BTC") {
-
+  if (fsym == "BTC" || tsym == "BTC") {
+    return [
+      `5~CCCAGG~${fsym}~${tsym}`,
+      `5~CCCAGG~${tsym}~${fsym}`];
+  } else {
+    return [
+      `5~CCCAGG~${fsym}~${tsym}`,
+      `5~CCCAGG~${tsym}~${fsym}`,
+      `5~CCCAGG~BTC~${fsym}`,
+      `5~CCCAGG~BTC~${tsym}`,
+      `5~CCCAGG~${fsym}~BTC`,
+      `5~CCCAGG~${tsym}~BTC`
+    ];
   }
-  return [
-    `5~CCCAGG~${fsym}~${tsym}`,
-    `5~CCCAGG~${tsym}~${fsym}`,
-    `5~CCCAGG~BTC~${fsym}`,
-    `5~CCCAGG~BTC~${tsym}`,
-    `5~CCCAGG~${fsym}~BTC`,
-    `5~CCCAGG~${tsym}~BTC`
-  ];
 }
 
 function getActualPrice(fsym,tsym) {
   if (priceExists(fsym,tsym)) {
     price = getPrice(fsym,tsym);
   } else if (priceExists(tsym,fsym)) {
-    price = (1 / getPrice(tsym,fsym));
+    price = (1/getPrice(tsym,fsym));
   } else {
     //from symbols
     btcToFSYM = priceExists("BTC",fsym);
@@ -89,32 +95,71 @@ function addToSubscriptions(subscription) {
   }
 }
 
-//cryptoCompare server to get up to date prices
-cryptoCompareServer.on("connect",function(){
+function getAllSubscriptionPrices() {
+  pairs = {};
+  for(i=0;i<subscriptionPairs.length;i++) {
+    from = subscriptionPairs[i].from
+    to = subscriptionPairs[i].to;
+    price = getActualPrice(subscriptionPairs[i].from,subscriptionPairs[i].to)
+    if (price != null) {
+      pairs[`${from}-${to}`] = {
+        from: from,
+        to: to,
+        price: price.price
+      }
+    }
+  }
+  return pairs;
+}
 
+function getUpdatedPrices(newPrices) {
+  uPrices = {};
+  uCount = 0;
+  for(var key in newPrices) {
+    if (key != "count") {
+      if (key in cryptoPricesPrevious) {
+        if (JSON.stringify(cryptoPricesPrevious[key]) !== JSON.stringify(newPrices[key])) {
+          uPrices[key] = newPrices[key];
+          uCount++;
+        }
+      } else {
+        uPrices[key] = newPrices[key];
+        uCount++;
+      }
+    }
+  }
+  uPrices["count"] = uCount;
+  return uPrices;
+}
+
+//cryptoCompare server to get up to date prices
+cryptoCompareServer.on("connect", () => {
   var currentPrice = {};
   //var subscription = ['0~Poloniex~BTC~USD','5~CCCAGG~LSK~USD'];
-  addToSubscriptions(getSubscriptions("LSK","AUD"));
-
+  //addToSubscriptions(getSubscriptions("POWR","AUD"));
   cryptoCompareServer.emit('SubAdd', { subs: cryptoCompareSubscription });
-  cryptoCompareServer.on("m", function(message) {
+  cryptoCompareServer.on("m", (message) => {
     var messageType = message.substring(0, message.indexOf("~"));
     var res = {};
     //console.log(message);
     //io.to("lobby").emit("updatePrices", message);
+    //console.log(message);
     if (messageType == StreamerUtilities.CCC.STATIC.TYPE.CURRENTAGG) {
 			res = StreamerUtilities.CCC.CURRENT.unpack(message);
       response = crypto.dataUnpack(res);
+      //console.log(response);
       if (typeof response.PRICE != "undefined" && response.PRICE > 0) {
         cryptoPrices[response.FROMSYMBOL+"-"+response.TOSYMBOL] = {
           price: response.PRICE,
           lastUpdate: response.LASTUPDATE
         }
-
-        realPrice = getActualPrice("LSK","AUD");
-        if (realPrice != null) {
-          console.log(realPrice);
-          io.to("lobby").emit("updatePrices", realPrice);
+        allPrices = getAllSubscriptionPrices();
+        updatedPrices = getUpdatedPrices(allPrices);
+        cryptoPricesPrevious = allPrices;
+        //console.log(allPrices);
+        console.log(updatedPrices);
+        if (updatedPrices.count > 0) {
+          io.to("lobby").emit("updatePrices", updatedPrices);
         }
       }
 
@@ -155,6 +200,18 @@ io.on('connection', (socket) => {
       text: message.text,
       createdAt: new Date().getTime()
     })
+  });
+
+  socket.on('getCoinList', (coins) => {
+
+  });
+
+  socket.on('addCurrency', (coins) => {
+    subscriptionPairs.push({
+      from: coins.from,
+      to: coins.to
+    });
+    cryptoCompareServer.emit('SubAdd', { subs: getSubscriptions(coins.from, coins.to)});
   });
 
 /*

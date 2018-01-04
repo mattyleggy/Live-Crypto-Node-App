@@ -8,8 +8,18 @@ socket.on('disconnect', function() {
   console.log('Disconnected from server');
 });
 
-socket.on("updatePrices",function(message){
-  console.log("updatePrices", message);
+socket.on("updatePrices",function(updatedPrices){
+  for (var key in updatedPrices) {
+    if (key != "count") {
+      conversion = $(".coin-price[conversion='"+key+"']");
+      if (conversion.length) {
+          conversion.html("<div class='coin-price' conversion='"+key+"'>"+updatedPrices[key].from+"-"+updatedPrices[key].to+" "+updatedPrices[key].price+"</div>");
+      } else {
+          $("#current_prices").append("<div class='coin-price' conversion='"+key+"'>"+updatedPrices[key].from+"-"+updatedPrices[key].to+" "+updatedPrices[key].price+"</div>");
+      }
+    }
+  }
+  console.log("updatePrices", updatedPrices);
 });
 
 socket.on("loadPrices",function(prices){
@@ -23,7 +33,7 @@ $(function(){
       from: $("#currency_from").val(),
       to: $("#currency_to").val(),
     }
-    socket.emit("updateCurrency", currency);
+    socket.emit("addCurrency", currency);
     return false;
   });
 });
