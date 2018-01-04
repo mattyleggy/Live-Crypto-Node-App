@@ -1,6 +1,28 @@
 class Subscriptions {
   constructor() {
+    this.subscriptionPairs = [];
+    this.cryptoCompareSubscription = [];
+    this.cryptoPrices = {};
+    this.cryptoPricesPrevious = {};
+  }
 
+  getSubscriptionPairs() {
+    return this.subscriptionPairs;
+  }
+
+  getCryptoPrices() {
+    return this.cryptoPrices;
+  }
+
+  getPreviousCryptoPrices() {
+    return this.cryptoPricesPrevious;
+  }
+
+  addSubscription(fsym,tsym) {
+    this.subscriptionPairs.push({
+      from: fsym,
+      to: tsym
+    });
   }
 
   getSubscriptions(fsym,tsym) {
@@ -20,21 +42,22 @@ class Subscriptions {
     }
   }
 
-  getRecentPrice(fsym,tsym) {
+  getActualPrice(fsym,tsym) {
+    var price;
     if (this.priceExists(fsym,tsym)) {
       price = this.getPrice(fsym,tsym);
     } else if (this.priceExists(tsym,fsym)) {
       price = (1/this.getPrice(tsym,fsym));
     } else {
       //from symbols
-      btcToFSYM = this.priceExists("BTC",fsym);
-      FSYMtoBTC = this.priceExists(fsym,"BTC");
+      var btcToFSYM = this.priceExists("BTC",fsym);
+      var FSYMtoBTC = this.priceExists(fsym,"BTC");
       //to symbols
-      TSYMtoBTC = this.priceExists(tsym,"BTC");
-      btcToTSYM = this.priceExists("BTC",tsym);
+      var TSYMtoBTC = this.priceExists(tsym,"BTC");
+      var btcToTSYM = this.priceExists("BTC",tsym);
       if ((TSYMtoBTC || btcToTSYM) && (btcToFSYM || FSYMtoBTC)) {
-        tsymPrice = this.getPrice("BTC",tsym) || (1/this.getPrice(tsym,"BTC"));
-        fsymPrice = this.getPrice(fsym,"BTC") || (1/this.getPrice("BTC",fsym));
+        var tsymPrice = this.getPrice("BTC",tsym) || (1/this.getPrice(tsym,"BTC"));
+        var fsymPrice = this.getPrice(fsym,"BTC") || (1/this.getPrice("BTC",fsym));
         price = fsymPrice * tsymPrice
       } else {
         return null;
@@ -49,7 +72,7 @@ class Subscriptions {
 
   getPrice(fsym,tsym) {
     if (this.priceExists(fsym,tsym)) {
-      return cryptoPrices[`${fsym}-${tsym}`].price;
+      return this.cryptoPrices[`${fsym}-${tsym}`].price;
     } else {
       return false;
     }
@@ -57,6 +80,49 @@ class Subscriptions {
 
   priceExists(fsym,tsym) {
     return (`${fsym}-${tsym}` in this.cryptoPrices);
+  }
+
+  addToSubscriptions(subscription) {
+    for(i=0;i<subscription.length;i++) {
+      this.cryptoCompareSubscription.push(subscription[i]);
+    }
+  }
+
+  getAllSubscriptionPrices() {
+    var pairs = {};
+    for(var i=0;i<this.subscriptionPairs.length;i++) {
+      var from = this.subscriptionPairs[i].from
+      var to = this.subscriptionPairs[i].to;
+      var price = this.getActualPrice(this.subscriptionPairs[i].from,this.subscriptionPairs[i].to)
+      if (price != null) {
+        pairs[`${from}-${to}`] = {
+          from: from,
+          to: to,
+          price: price.price
+        }
+      }
+    }
+    return pairs;
+  }
+
+  getUpdatedPrices(newPrices) {
+    var uPrices = {};
+    var uCount = 0;
+    for(var key in newPrices) {
+      if (key != "count") {
+        if (key in this.cryptoPricesPrevious) {
+          if (JSON.stringify(this.cryptoPricesPrevious[key]) !== JSON.stringify(newPrices[key])) {
+            uPrices[key] = newPrices[key];
+            uCount++;
+          }
+        } else {
+          uPrices[key] = newPrices[key];
+          uCount++;
+        }
+      }
+    }
+    uPrices["count"] = uCount;
+    return uPrices;
   }
 }
 
