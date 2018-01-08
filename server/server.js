@@ -49,7 +49,7 @@ cryptoCompareServer.on("connect", () => {
           lastUpdate: response.LASTUPDATE
         }
         allPrices = subs.getAllSubscriptionPrices();
-        updatedPrices = subs.getUpdatedPrices(allPrices);        
+        updatedPrices = subs.getUpdatedPrices(allPrices);
         subs.setPreviousCryptoPrices(allPrices);
         //console.log(allPrices);
         console.log(updatedPrices);
@@ -70,11 +70,7 @@ io.on('connection', (socket) => {
 
   socket.join("lobby");
 
-  socket.broadcast.emit('newMessage', {
-    from: "Admin",
-    text: "New user joined!",
-    createdAt:  new Date().getTime()
-  });
+  io.emit('priceList', subs.getAllSubscriptionPrices());
 
   socket.on('updatePrices', (message) => {
     console.log("oh");
